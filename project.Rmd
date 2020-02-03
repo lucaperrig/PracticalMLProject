@@ -1,0 +1,82 @@
+---
+title: "Practical ML Project"
+author: "Luca Perrig"
+date: "2/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(caret)
+library(rattle)
+library(randomForest)
+```
+
+
+## Load the data
+
+First step is to load the data. Here, we load data about wieght lifting taken from:
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. 
+
+```{r}
+training <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+testing <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+```
+
+## Clean the data
+
+Then we should clean the data. This implies first getting rid of the columns that contain NAs.
+
+```{r}
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+```
+
+Then there are columns that are not relevent for our prediction, such as the user name or index. We want to remove these too.
+
+```{r}
+training <- training[-grep("^X$|user_name|timestamp|window", names(training))]
+testing <- testing[-grep("^X$|user_name|timestamp|window", names(testing))]
+```
+
+## Split
+
+We can now split our data into the training and testing data. Here we use set the threshhold at 70 so that 70% of our data will be training ant 30% testing.
+
+```{r}
+inTrain <- createDataPartition(training$classe, p=0.70, list=F)
+trainData <- training[inTrain, ]
+testData <- training[-inTrain, ]
+```
+
+## Train
+
+We will build our model using random forest, because it is a fast method that allows to automatically sort the most relevant features, which is perfect for our dataset that contains a lot of features. Our model will use k-fold method of cross-validation.
+
+```{r, cache = TRUE}
+control <- trainControl(method="cv", 5)
+model <- train(classe ~ ., data=trainData, method="rf", trControl=control, ntree=250)
+```
+
+Now that we have our model, we can apply it to the test data we created to make sure it works as expected.
+
+```{r}
+predict <- predict(model, testData)
+confusionMatrix(testData$classe, predict)
+```
+
+We can see from this output that our model has an accuracy of 0.992, or an out-of-sample error of 0.8%.
+
+## Predict
+
+Now we can apply our model to the testing dataset provided.
+
+
+```{r}
+result <- predict(model, testing[, -length(names(testing))])
+result
+```
